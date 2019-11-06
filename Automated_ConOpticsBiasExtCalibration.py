@@ -13,21 +13,21 @@ from Chameleon import Chameleon
 from wavelength_to_rgb import wavelength_to_rgb
 
 class Calibration:
-	def __init__(self, THORpowerMeterRange, verbose=True):
+	def __init__(self, THORpowerMeterRange, verbose=True, wavelengths=np.arange(800,1080+1,10)):
 		self.verbose = verbose
 		self.THORpowerMeterRange = THORpowerMeterRange
 		
 		#initialize the connection to the pockels cell and the power meter
-		self.setupPockelsCell(channels='Dev2/ao0:1')
-		self.setupPowerMeter(channels='Dev2/ai13')
+		self.setupPockelsCell(channels='PXI1Slot4/ao0:1')
+		self.setupPowerMeter(channels='PXI1Slot4/ai13')
 		
 		#initialize the connection to the chameleon
-		self.laser = Chameleon(verbose=self.verbose)
+		self.laser = Chameleon(verbose=self.verbose, com_port='COM1')
 		
 		#set pockels cell bias, cmd and shutter to safe positions
 		self.safeSystem()
 		
-		self.wavelengths = np.arange(800,1080+1,10)
+		self.wavelengths = wavelengths;
 		self.wavelengths = np.rint(self.wavelengths) #round wavelengths to integers
 		self.wavelengths = self.wavelengths.astype(int) #cast the wavelengths array as integers
 		self.wait_time_s = 4 # (s) time to wait after adjusting the bias values (time constant of S175C is approx 1.5-2 s)
