@@ -21,6 +21,8 @@ class Chameleon:
 		self.sendCommand(b'')
 		time.sleep(0.05)
 		
+		self.current_wavelength = 1000
+		
 		
 	##########################################################################
 	## COMMAND / RESPONSE PRIMITIVE FUNCTIONS
@@ -47,6 +49,7 @@ class Chameleon:
 	## WAVELENGTH FUNCTIONS
 	##########################################################################
 	def setWavelength(self, n):
+		self.current_wavelength = n
 		if(self.verbose):
 			print('Tuning the laser to ', n, 'nm')
 		self.sendCmdGetResponse(b'vw=' + bytes(str(n), 'utf-8'))

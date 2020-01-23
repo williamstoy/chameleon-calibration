@@ -5,6 +5,8 @@ Created on Mon Jul 29 18:02:34 2019
 @author: rylab
 """
 
+from datetime import datetime
+import csv
 import nidaqmx
 import time
 import numpy as np
@@ -13,13 +15,13 @@ from Chameleon import Chameleon
 from wavelength_to_rgb import wavelength_to_rgb
 
 class Calibration:
-	def __init__(self, THORpowerMeterRange, verbose=True, wavelengths=np.arange(800,1080+1,10)):
+	def __init__(self, THORpowerMeterRange, verbose=True, wavelengths=np.arange(750,1080+1,10)):
 		self.verbose = verbose
 		self.THORpowerMeterRange = THORpowerMeterRange
 		
 		#initialize the connection to the pockels cell and the power meter
-		self.setupPockelsCell(channels='PXI1Slot4/ao0:1')
-		self.setupPowerMeter(channels='PXI1Slot4/ai13')
+		self.setupPockelsCell(channels='Dev2/ao0:1')
+		self.setupPowerMeter(channels='Dev2/ai13')
 		
 		#initialize the connection to the chameleon
 		self.laser = Chameleon(verbose=self.verbose, com_port='COM1')
@@ -31,8 +33,9 @@ class Calibration:
 		self.wavelengths = np.rint(self.wavelengths) #round wavelengths to integers
 		self.wavelengths = self.wavelengths.astype(int) #cast the wavelengths array as integers
 		self.wait_time_s = 4 # (s) time to wait after adjusting the bias values (time constant of S175C is approx 1.5-2 s)
-		self.bias_params = np.array([-0.005571, 5.522])
+		self.bias_params = np.array([-0.0056, 5.7554])
 		self.bias_estimation = lambda wavelength: self.bias_params[0]*wavelength+self.bias_params[1]
+		self.front_panel_conversion = lambda bias: 42.144*bias + 0.003
 		
 		self.reprate = 80e6 # Hz
 		
@@ -40,14 +43,10 @@ class Calibration:
 		np.random.shuffle(self.newWavelengths)
 		self.newBiasValues = np.array([])
 		
-		
-		self.record_bias = np.array([])
-		self.record_command = np.array([])
-		self.record_wavelength = np.array([])
-		self.record_power = np.array([])
-		self.record_photons_per_pulse = np.array([])
-		
-		
+		now = datetime.now()
+		self.file_suffix = now.strftime('%Y-%m-%d_%H-%M') + '.csv'
+	
+				
 		
 	def setupPockelsCell(self, channels):
 		self.pockels_cell = nidaqmx.Task()
@@ -69,7 +68,7 @@ class Calibration:
 
 		#find the previous estimation of the bias minimum
 		previous_bias = self.bias_estimation(wavelength)
-		bias_to_test = np.arange(-2,8,.5)
+		bias_to_test = previous_bias + np.arange(-.75,.75,.1) #np.arange(-2,8,.5)
 		bias_to_test_shuffled = bias_to_test.copy()
 		np.random.shuffle(bias_to_test_shuffled)
 		if(self.verbose):
@@ -89,12 +88,9 @@ class Calibration:
 			
 			intensities = np.append(intensities, power)
 			
-			#record all values
-			self.record_bias = np.append(self.record_bias, bias)
-			self.record_command = np.append(self.record_command, 0)
-			self.record_wavelength = np.append(self.record_wavelength, wavelength)
-			self.record_power = np.append(self.record_power, power)
-			self.record_photons_per_pulse = np.append(self.record_photons_per_pulse, self.convertPowerToPhotonsPerPulse(power, wavelength))
+			photons_per_pulse = self.convertPowerToPhotonsPerPulse(power, wavelength)
+			
+			self.chameleon_bias_minimum_writer.writerow([self.laser.current_wavelength, self.THORpowerMeterRange, self.front_panel_conversion(bias), bias, 0, power, photons_per_pulse])
 			
 			if(self.verbose):
 				print(bias, ',', power)
@@ -114,6 +110,15 @@ class Calibration:
 		derivative = poly2(zeros, poly2diff(p))
 		local_minimum = zeros[np.argmax(derivative)]
 		print(local_minimum)
+		
+		# take one more measurement at the minimum value
+		baseline_value = self.setPockelsCellValuesAndRecordPower(0, 0)
+		self.laser.openShutterBlocking()
+		
+		power_at_minimum_bias = self.setPockelsCellValuesAndRecordPower(local_minimum, 0)-baseline_value
+		self.calib_record_writer.writerow([self.laser.current_wavelength, self.THORpowerMeterRange, self.front_panel_conversion(local_minimum), local_minimum, 0, power_at_minimum_bias, self.convertPowerToPhotonsPerPulse(power_at_minimum_bias, wavelength)])
+		
+		self.safeSystem()
 		
 		plt.plot(bias_to_test_shuffled, intensities, marker='o', markeredgecolor=wavelength_to_rgb(wavelength/2), markerfacecolor=wavelength_to_rgb(wavelength/2), linestyle='None')
 		plt.plot(bias_to_test, fitline(bias_to_test, p), color=wavelength_to_rgb(wavelength/2), linestyle='dashed')
@@ -144,6 +149,16 @@ class Calibration:
 		if(self.newBiasValues.size > 0):
 			return
 		
+		calib_record_filename = './data/chameleon_bias_minimum_sweep_raw_data_' + self.file_suffix
+		self.calib_record_file = open(calib_record_filename, mode='w', newline='')
+		self.calib_record_writer = csv.writer(self.calib_record_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+		self.calib_record_writer.writerow(['Wavelength (nm)', 'Power Meter Range (mW)', 'Front Panel Bias', 'Bias (V)', 'Command (V)', 'Power (mW)', 'Photons Per Pulse (#)'])
+		
+		chameleon_bias_minimum_filename = './data/chameleon_bias_minimum_values_' + self.file_suffix
+		self.chameleon_bias_minimum_file = open(chameleon_bias_minimum_filename, mode='w', newline='')
+		self.chameleon_bias_minimum_writer = csv.writer(self.chameleon_bias_minimum_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+		self.chameleon_bias_minimum_writer.writerow(['Wavelength (nm)', 'Power Meter Range (mW)', 'Front Panel Bias', 'Bias (V)', 'Command (V)', 'Power (mW)', 'Photons Per Pulse (#)'])
+		
 		plt.figure() #create a new figure
 		for wavelength in self.newWavelengths:
 			self.newBiasValues = np.append(self.newBiasValues, self.findBiasMin(wavelength))
@@ -151,12 +166,22 @@ class Calibration:
 		# fit a line to the values 
 		self.bias_params = np.polyfit(self.newWavelengths, self.newBiasValues, 1)
 		
+		self.calib_record_file.close()
+		self.chameleon_bias_minimum_file.close()
+		
 		
 		
 	def calibrateCommandAllWavelengths(self):
+		chameleon_cmd_sweep_filename = './data/chameleon_cmd_sweep_raw_data_' + self.file_suffix
+		self.chameleon_cmd_sweep_file = open(chameleon_cmd_sweep_filename, mode='w', newline='')
+		self.chameleon_cmd_sweep_writer = csv.writer(self.chameleon_cmd_sweep_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+		self.chameleon_cmd_sweep_writer.writerow(['Wavelength (nm)', 'Power Meter Range (mW)', 'Front Panel Bias', 'Bias (V)', 'Command (V)', 'Power (mW)', 'Photons Per Pulse (#)'])
+		
 		plt.figure() #create a new figure
 		for wavelength in self.newWavelengths:
 			self.commandCalibrationAtWavelength(wavelength)
+			
+		self.chameleon_cmd_sweep_file.close()
 		
 		
 		
@@ -170,33 +195,46 @@ class Calibration:
 		time.sleep(self.wait_time_s)
 			
 		#read in the value from the power meter
-		AI_value = self.convertPMVoltageToPower(np.mean(self.power_meter.read(200)))
+		converted_pm_reading = self.convertPMVoltageToPower(np.mean(self.power_meter.read(200)))
 		time.sleep(.2)
 		
-		return AI_value
+		return converted_pm_reading
 			
 	
 	
 	def commandCalibrationAtWavelength(self, wavelength):
 		#set the wavelength
 		self.laser.setWavelengthBlocking(wavelength)
-		
+
 		#find the previous estimation of the bias minimum
-		bias = self.bias_estimation(wavelength)
-		cmd_to_test = np.arange(0, 1.01, .1)
+		previous_bias = self.bias_estimation(wavelength)
+		cmd_to_test = np.arange(0,1.0001,.1)
 		cmd_to_test_shuffled = cmd_to_test.copy()
-		#inp.random.shuffle(cmd_to_test_shuffled)
+		np.random.shuffle(cmd_to_test_shuffled)
+		if(self.verbose):
+			print('Bias Estimation: ', previous_bias)
+			
+		#take a baseline reading
+		baseline_value = self.setPockelsCellValuesAndRecordPower(0, 0)
+		if(self.verbose):
+			print('Baseline Value (Shutter Closed): ', baseline_value)
 		
 		intensities = np.array([])
 		self.laser.openShutterBlocking()
 		for cmd in cmd_to_test_shuffled:
-			AI_value = self.setPockelsCellValuesAndRecordPower(bias, cmd)
+			AI_value = self.setPockelsCellValuesAndRecordPower(previous_bias, cmd)
 			
-			intensities = np.append(intensities, AI_value)
+			power = AI_value-baseline_value
+			
+			intensities = np.append(intensities, power)
+			
+			photons_per_pulse = self.convertPowerToPhotonsPerPulse(power, wavelength)
+					
+			self.chameleon_cmd_sweep_writer.writerow([self.laser.current_wavelength, self.THORpowerMeterRange, self.front_panel_conversion(previous_bias), previous_bias, cmd, power, photons_per_pulse])
 			
 			if(self.verbose):
-				print(cmd, ',', AI_value)
-				
+				print(cmd, ',', power)
+			
 		self.safeSystem()
 		
 		plt.plot(cmd_to_test_shuffled, intensities, marker='o', markeredgecolor=wavelength_to_rgb(wavelength/2), markerfacecolor=wavelength_to_rgb(wavelength/2), linestyle='None')
@@ -229,4 +267,6 @@ class Calibration:
 calib = Calibration(THORpowerMeterRange=5500)
 plt.figure()
 calib.calibrateBiasAllWavelengths()
+plt.figure()
+calib.calibrateCommandAllWavelengths()
 calib.close()
