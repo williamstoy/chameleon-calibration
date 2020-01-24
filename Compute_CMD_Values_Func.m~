@@ -1,0 +1,83 @@
+function [photon_flux_at_wavelength, equi_photon_cmd_value, unique_wavelengths, milliwatts_at_command_at_wavelength] = Compute_CMD_Values_Func(wavelength, cmd_value, hSinFitPlot, hEquiphotonFluxPlot, hPowerAtEquiphotonFlux)
+    cla(hSinFitPlot);
+
+    %import the fit parameters from the latest calibration
+    folder = 'data';
+    files = dir(['./' folder '/*_fit_vals.csv']);
+
+    %find the most recent calibration
+
+    [~,idx] = sort([files.datenum], 'descend');
+    data = readmatrix(['./' folder '/' files(idx(1)).name]);
+
+    wavelengths = data(:,1);
+    photons_per_milliwatt = data(:,2);
+    a = data(:,3);
+    b = data(:,4);
+    c = data(:,5);
+    d = data(:,6);
+
+    f = @(a,b,c,d,x) a*sin(b*x+c)+d;
+    unique_wavelengths = unique(wavelengths);
+
+    this_wavelength_index = find(wavelengths == wavelength);
+
+    if(length(this_wavelength_index) > 1)
+       error('Too many wavelength fit params that match in the database; possibly corrupted'); 
+    end
+
+    if(length(this_wavelength_index) < 1)
+       error('There is no fit for that wavelength in the calibration'); 
+    end
+
+    photon_flux_at_wavelength = f(a(this_wavelength_index), b(this_wavelength_index), c(this_wavelength_index), d(this_wavelength_index), cmd_value);
+
+    %loop over the other values and solve for htis new peak value at lowest
+    %power wavelength
+    
+    hold(hSinFitPlot, 'on'); plot(hSinFitPlot, [0 1], [photon_flux_at_wavelength photon_flux_at_wavelength], 'r--');
+    y = photon_flux_at_wavelength;
+    for i = 1:length(unique_wavelengths)
+        %plot the fit lines
+        if(unique_wavelengths(i) == wavelength)
+            plot_color = 'r';
+            line_width = 3;
+        else
+            plot_color = 'k';
+            line_width = 1;
+        end
+        plot(hSinFitPlot, 0:0.0001:1, f(a(i),b(i),c(i),d(i),0:0.0001:1),plot_color, 'LineWidth', line_width);
+
+        if photon_flux_at_wavelength > max(f(a(i),b(i),c(i),d(i),0:0.0001:1))
+            equi_photon_cmd_value(i) = NaN;
+            milliwatts_at_command_at_wavelength(i) = NaN;
+        else
+            x = (asin((y-d(i))/a(i))-c(i))/b(i);
+
+            if(x < 0)
+               x = x + (2*pi)/b(i); 
+            end
+            equi_photon_cmd_value(i) = x;
+            milliwatts_at_command_at_wavelength(i) = photon_flux_at_wavelength/photons_per_milliwatt(i);
+        end
+
+        plot(hSinFitPlot, equi_photon_cmd_value(i), photon_flux_at_wavelength, 'rx');
+    end
+    plot(hSinFitPlot, [cmd_value, cmd_value], [0, photon_flux_at_wavelength], 'r--');
+    xlim(hSinFitPlot, [0,1]);
+    ylim(hSinFitPlot, [0,inf]);
+    grid on;
+
+    plot(hEquiphotonFluxPlot, unique_wavelengths,equi_photon_cmd_value, 'rx');
+    xlim(hEquiphotonFluxPlot, [min(wavelengths)-10, max(wavelengths)+10]);
+    ylim(hEquiphotonFluxPlot, [-0.1, 1.1]);
+    grid(hEquiphotonFluxPlot, 'on');
+    plot(hPowerAtEquiphotonFlux, unique_wavelengths,milliwatts_at_command_at_wavelength, 'bo');
+    grid(hPowerAtEquiphotonFlux, 'on');
+    xlim(hPowerAtEquiphotonFlux, [min(wavelengths)-10, max(wavelengths)+10]);
+    ylim(hPowerAtEquiphotonFlux, [0, 1000]);
+    
+    milliwatts_at_command_at_wavelength = milliwatts_at_command_at_wavelength';
+    %photon_flux_at_wavelength = photon_flux_at_wavelength';
+    equi_photon_cmd_value = equi_photon_cmd_value';
+end
