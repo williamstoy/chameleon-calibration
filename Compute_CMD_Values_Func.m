@@ -1,5 +1,7 @@
 function [photon_flux_at_wavelength, equi_photon_cmd_value, unique_wavelengths, milliwatts_at_command_at_wavelength, filename] = Compute_CMD_Values_Func(wavelength, cmd_value, hSinFitPlot, hEquiphotonFluxPlot, hPowerAtEquiphotonFlux)
     cla(hSinFitPlot);
+    cla(hEquiphotonFluxPlot);
+    cla(hPowerAtEquiphotonFlux);
 
     %import the fit parameters from the latest calibration
     folder = 'data';
@@ -36,7 +38,7 @@ function [photon_flux_at_wavelength, equi_photon_cmd_value, unique_wavelengths, 
     %loop over the other values and solve for htis new peak value at lowest
     %power wavelength
     
-    hold(hSinFitPlot, 'on'); plot(hSinFitPlot, [0 1], [photon_flux_at_wavelength photon_flux_at_wavelength], 'r--');
+    plot(hSinFitPlot, [0 1], [photon_flux_at_wavelength photon_flux_at_wavelength], 'r--'); hold(hSinFitPlot, 'on'); 
     y = photon_flux_at_wavelength;
     for i = 1:length(unique_wavelengths)
         %plot the fit lines
@@ -62,23 +64,31 @@ function [photon_flux_at_wavelength, equi_photon_cmd_value, unique_wavelengths, 
             milliwatts_at_command_at_wavelength(i) = photon_flux_at_wavelength/photons_per_milliwatt(i);
         end
 
-        plot(hSinFitPlot, equi_photon_cmd_value(i), photon_flux_at_wavelength, 'rx');
+        plot(hSinFitPlot, equi_photon_cmd_value(i), photon_flux_at_wavelength, 'rx', 'MarkerSize', 10);
     end
     plot(hSinFitPlot, [cmd_value, cmd_value], [0, photon_flux_at_wavelength], 'r--');
     xlim(hSinFitPlot, [0,1]);
     ylim(hSinFitPlot, [0,inf]);
     grid on;
 
-    plot(hEquiphotonFluxPlot, unique_wavelengths,equi_photon_cmd_value, 'rx');
+    
+    plot(hEquiphotonFluxPlot, unique_wavelengths,equi_photon_cmd_value, 'rx', 'MarkerSize', 10); hold(hEquiphotonFluxPlot, 'on');
+    equi_photon_cmd_value_at_input_wavelength = equi_photon_cmd_value(unique_wavelengths == wavelength);
+    plot(hEquiphotonFluxPlot, [wavelength, wavelength], [-0.1, equi_photon_cmd_value_at_input_wavelength], 'r--');
+    plot(hEquiphotonFluxPlot, [min(wavelengths)-10, wavelength], [equi_photon_cmd_value_at_input_wavelength, equi_photon_cmd_value_at_input_wavelength], 'r--');
     xlim(hEquiphotonFluxPlot, [min(wavelengths)-10, max(wavelengths)+10]);
     ylim(hEquiphotonFluxPlot, [-0.1, 1.1]);
     grid(hEquiphotonFluxPlot, 'on');
-    plot(hPowerAtEquiphotonFlux, unique_wavelengths,milliwatts_at_command_at_wavelength, 'bo');
+    
+    plot(hPowerAtEquiphotonFlux, unique_wavelengths,milliwatts_at_command_at_wavelength, 'bo', 'MarkerSize', 10); hold(hPowerAtEquiphotonFlux, 'on'); 
+    milliwatts_at_command_at_input_wavelength = milliwatts_at_command_at_wavelength(unique_wavelengths == wavelength);
+    plot(hPowerAtEquiphotonFlux, [wavelength, wavelength], [0, milliwatts_at_command_at_input_wavelength], 'r--');
+    plot(hPowerAtEquiphotonFlux, [min(wavelengths)-10, wavelength], [milliwatts_at_command_at_input_wavelength, milliwatts_at_command_at_input_wavelength], 'r--');
     grid(hPowerAtEquiphotonFlux, 'on');
     xlim(hPowerAtEquiphotonFlux, [min(wavelengths)-10, max(wavelengths)+10]);
     ylim(hPowerAtEquiphotonFlux, [0, 1000]);
     
-    milliwatts_at_command_at_wavelength = milliwatts_at_command_at_wavelength';
-    %photon_flux_at_wavelength = photon_flux_at_wavelength';
-    equi_photon_cmd_value = equi_photon_cmd_value';
+    milliwatts_at_command_at_wavelength = round(abs(milliwatts_at_command_at_wavelength'));
+    photon_flux_at_wavelength = abs(photon_flux_at_wavelength);
+    equi_photon_cmd_value = round(abs(equi_photon_cmd_value'),3);
 end
