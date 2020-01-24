@@ -1,4 +1,4 @@
-function [photon_flux_at_wavelength, equi_photon_cmd_value, unique_wavelengths, milliwatts_at_command_at_wavelength] = Compute_CMD_Values_Func(wavelength, cmd_value, hSinFitPlot, hEquiphotonFluxPlot, hPowerAtEquiphotonFlux)
+function [photon_flux_at_wavelength, equi_photon_cmd_value, unique_wavelengths, milliwatts_at_command_at_wavelength, filename] = Compute_CMD_Values_Func(wavelength, cmd_value, hSinFitPlot, hEquiphotonFluxPlot, hPowerAtEquiphotonFlux)
     cla(hSinFitPlot);
 
     %import the fit parameters from the latest calibration
@@ -8,7 +8,8 @@ function [photon_flux_at_wavelength, equi_photon_cmd_value, unique_wavelengths, 
     %find the most recent calibration
 
     [~,idx] = sort([files.datenum], 'descend');
-    data = readmatrix(['./' folder '/' files(idx(1)).name]);
+    filename = files(idx(1)).name;
+    data = readmatrix(['./' folder '/' filename]);
 
     wavelengths = data(:,1);
     photons_per_milliwatt = data(:,2);
