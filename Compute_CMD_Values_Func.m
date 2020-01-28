@@ -1,24 +1,38 @@
-function [photon_flux_at_wavelength, equi_photon_cmd_value, unique_wavelengths, milliwatts_at_command_at_wavelength, filename] = Compute_CMD_Values_Func(wavelength, cmd_value, hSinFitPlot, hEquiphotonFluxPlot, hPowerAtEquiphotonFlux)
+function [photon_flux_at_wavelength, equi_photon_cmd_value, unique_wavelengths, milliwatts_at_command_at_wavelength, bias_voltages, front_panel_bias, filename] = Compute_CMD_Values_Func(wavelength, cmd_value, hSinFitPlot, hEquiphotonFluxPlot, hPowerAtEquiphotonFlux)
     cla(hSinFitPlot);
     cla(hEquiphotonFluxPlot);
     cla(hPowerAtEquiphotonFlux);
 
     %import the fit parameters from the latest calibration
     folder = 'data';
-    files = dir(['./' folder '/*_fit_vals.csv']);
+    fit_values_files = dir(['./' folder '/*_fit_vals.csv']);
+    bias_min_files = dir(['./' folder '/chameleon_bias_minimum_sweep_raw_data*.csv']);
 
-    %find the most recent calibration
+    %find the most recent fit calibration
+    [~,idx] = sort([fit_values_files.datenum], 'descend');
+    filename = fit_values_files(idx(1)).name;
+    fit_data = readmatrix(['./' folder '/' filename]);
+    
+    %find the most recent bias calibration
+    [~,idx] = sort([bias_min_files.datenum], 'descend');
+    filename = bias_min_files(idx(1)).name;
+    bias_data = readmatrix(['./' folder '/' filename]);
+    
+    bias_wavelength = bias_data(:,1);
+    front_panel_bias = bias_data(:,3);
+    bias_voltages = bias_data(:,4);
+    
+    [~, bias_indicies] = sort(bias_wavelength);
+    front_panel_bias = front_panel_bias(bias_indicies);
+    bias_voltages = bias_voltages(bias_indicies);
 
-    [~,idx] = sort([files.datenum], 'descend');
-    filename = files(idx(1)).name;
-    data = readmatrix(['./' folder '/' filename]);
-
-    wavelengths = data(:,1);
-    photons_per_milliwatt = data(:,2);
-    a = data(:,3);
-    b = data(:,4);
-    c = data(:,5);
-    d = data(:,6);
+    % process the fit data
+    wavelengths = fit_data(:,1);
+    photons_per_milliwatt = fit_data(:,2);
+    a = fit_data(:,3);
+    b = fit_data(:,4);
+    c = fit_data(:,5);
+    d = fit_data(:,6);
 
     f = @(a,b,c,d,x) a*sin(b*x+c)+d;
     unique_wavelengths = unique(wavelengths);
