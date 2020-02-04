@@ -33,7 +33,7 @@ class Calibration:
 		self.wavelengths = np.rint(self.wavelengths) #round wavelengths to integers
 		self.wavelengths = self.wavelengths.astype(int) #cast the wavelengths array as integers
 		self.wait_time_s = 4 # (s) time to wait after adjusting the bias values (time constant of S175C is approx 1.5-2 s)
-		self.bias_params = np.array([-0.0056, 5.7554])
+		self.bias_params = np.array([-0.0058, 5.9021])
 		self.bias_estimation = lambda wavelength: self.bias_params[0]*wavelength+self.bias_params[1]
 		self.front_panel_conversion = lambda bias: 42.144*bias + 0.003
 		
@@ -68,7 +68,7 @@ class Calibration:
 
 		#find the previous estimation of the bias minimum
 		previous_bias = self.bias_estimation(wavelength)
-		bias_to_test = previous_bias + np.arange(-.75,.75,.1) #np.arange(-2,8,.5)
+		bias_to_test = previous_bias + np.arange(-.75,.75,.05) #np.arange(-2,8,.5)
 		bias_to_test_shuffled = bias_to_test.copy()
 		np.random.shuffle(bias_to_test_shuffled)
 		if(self.verbose):
@@ -208,7 +208,7 @@ class Calibration:
 
 		#find the previous estimation of the bias minimum
 		previous_bias = self.bias_estimation(wavelength)
-		cmd_to_test = np.arange(0,1.0001,.1)
+		cmd_to_test = np.arange(0,.2500001,.01)
 		cmd_to_test_shuffled = cmd_to_test.copy()
 		np.random.shuffle(cmd_to_test_shuffled)
 		if(self.verbose):
@@ -264,9 +264,9 @@ class Calibration:
 		if(self.verbose):
 			print('Calibration Finished')
 
-calib = Calibration(THORpowerMeterRange=5500)
-plt.figure()
-calib.calibrateBiasAllWavelengths()
-plt.figure()
+calib = Calibration(THORpowerMeterRange=550)
+#plt.figure()
+#calib.calibrateBiasAllWavelengths()
+#plt.figure()
 calib.calibrateCommandAllWavelengths()
 calib.close()
