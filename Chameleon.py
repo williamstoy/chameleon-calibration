@@ -37,6 +37,10 @@ class Chameleon:
 		cmd = re.sub(b'[\=]', b'\=', cmd)
 		#strip out \r and \n, CHAMELEON> and the command
 		response = re.sub(b'[\\r|\\n|(CHAMELEON\>)|(' + cmd + b')|\s]', b'', response)
+		
+		if(self.verbose):
+			print(response);
+			
 		return response
 	
 	def sendCmdGetResponse(self, cmd):
