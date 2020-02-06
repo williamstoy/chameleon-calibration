@@ -100,7 +100,7 @@ function [photon_flux_at_wavelength, equi_photon_cmd_value, unique_wavelengths, 
     plot(hPowerAtEquiphotonFlux, [min(wavelengths)-10, wavelength], [milliwatts_at_command_at_input_wavelength, milliwatts_at_command_at_input_wavelength], 'r--');
     grid(hPowerAtEquiphotonFlux, 'on');
     xlim(hPowerAtEquiphotonFlux, [min(wavelengths)-10, max(wavelengths)+10]);
-    ylim(hPowerAtEquiphotonFlux, [0, 1000]);
+    %ylim(hPowerAtEquiphotonFlux, [0, 1000]);
     
     milliwatts_at_command_at_wavelength = round(abs(milliwatts_at_command_at_wavelength'));
     photon_flux_at_wavelength = abs(photon_flux_at_wavelength);

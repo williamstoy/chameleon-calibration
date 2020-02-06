@@ -18,7 +18,7 @@ fit_params = [];
 photons_per_milliwatt = [];
 %% loop over the unique wavelengths and fit a sinusoid
 for i = 1:length(unique_wavelengths)
-   %clf;
+   clf;
    this_wavelength = unique_wavelengths(i);
    this_command = command(wavelengths == this_wavelength);
    this_photons_per_pulse = photons_per_pulse(wavelengths == this_wavelength);
@@ -32,20 +32,16 @@ for i = 1:length(unique_wavelengths)
    max_cmd = this_command(max_location);
    voltage_period = max_cmd - min_cmd;
    
-   voltage_period = 1; %overwrite because we may not use the full range
+   voltage_period = 1;
 
-   
-   start_point = [amplitude/2*(1/max_cmd), 1.5*pi*voltage_period, 1.5*pi*voltage_period, amplitude/2*(1/max_cmd)];
-   lower_bound = [0, 0.8*pi, 0.8*pi, 0];
-   upper_bound = [inf, 1.8*pi, 1.8*pi, inf];
-   this_fit = fit(this_command, this_photons_per_pulse, f, 'StartPoint', start_point, 'Lower', lower_bound, 'Upper', upper_bound);
+   this_fit = fit(this_command, this_photons_per_pulse, f, 'StartPoint', [amplitude/2*, 1.5*pi*voltage_period, 1.5*pi*voltage_period, amplitude*2]);
    
    fit_params(i,:) = [this_fit.a, this_fit.b, this_fit.c, this_fit.d];
    
    plot(this_command, this_photons_per_pulse, 'ko'); hold on;
    plot(this_fit, 'k');
-   %title([num2str(unique_wavelengths(i)) ' nm']);
-   %pause;
+   title([num2str(unique_wavelengths(i)) ' nm']);
+   pause;
 end
 
 writematrix([unique_wavelengths,photons_per_milliwatt',fit_params],['./' folder '/' filename_no_filetype '_fit_vals.csv']);
