@@ -265,8 +265,8 @@ class Calibration:
 			print('Calibration Finished')
 
 calib = Calibration(THORpowerMeterRange=550)
-#plt.figure()
-#calib.calibrateBiasAllWavelengths()
-#plt.figure()
+plt.figure()
+calib.calibrateBiasAllWavelengths()
+plt.figure()
 calib.calibrateCommandAllWavelengths()
 calib.close()

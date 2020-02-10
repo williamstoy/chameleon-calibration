@@ -81,8 +81,8 @@ function [photon_flux_at_wavelength, equi_photon_cmd_value, unique_wavelengths, 
         plot(hSinFitPlot, equi_photon_cmd_value(i), photon_flux_at_wavelength, 'rx', 'MarkerSize', 10);
     end
     plot(hSinFitPlot, [cmd_value, cmd_value], [0, photon_flux_at_wavelength], 'r--');
-    xlim(hSinFitPlot, [0,1]);
-    ylim(hSinFitPlot, [0,inf]);
+    xlim(hSinFitPlot, [0,.25]);
+    %ylim(hSinFitPlot, [0,inf]);
     grid on;
 
     
